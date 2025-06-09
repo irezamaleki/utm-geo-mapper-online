@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Calculator, MapPin, Globe, Plus, Trash2, Download } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
@@ -142,19 +141,34 @@ const UTMConverter = () => {
     return { latitude: latDeg, longitude: lonDeg };
   };
 
+  // Proper geographic area calculation using the shoelace formula with spherical coordinates
   const calculatePolygonArea = (coords: [number, number][]): number => {
     if (coords.length < 4) return 0; // Need at least 4 points for a polygon
     
-    let area = 0;
-    const n = coords.length;
+    // Convert to radians
+    const coordsRad = coords.map(([lat, lon]) => [lat * Math.PI / 180, lon * Math.PI / 180]);
     
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
-      area += coords[i][1] * coords[j][0];
-      area -= coords[j][1] * coords[i][0];
+    let area = 0;
+    const R = 6371000; // Earth's radius in meters
+    
+    // Use spherical excess formula for more accurate area calculation
+    for (let i = 0; i < coordsRad.length; i++) {
+      const j = (i + 1) % coordsRad.length;
+      const [lat1, lon1] = coordsRad[i];
+      const [lat2, lon2] = coordsRad[j];
+      
+      area += (lon2 - lon1) * Math.sin((lat1 + lat2) / 2);
     }
     
-    return Math.abs(area) / 2;
+    area = Math.abs(area) * R * R / 2;
+    
+    console.log('Area calculation:', {
+      coords: coords,
+      coordsRad: coordsRad,
+      calculatedArea: area
+    });
+    
+    return area;
   };
 
   const generateKMZ = async () => {
