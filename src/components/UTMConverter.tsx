@@ -3,23 +3,25 @@ import React, { useState, useEffect } from 'react';
 import { Calculator, MapPin, Globe } from 'lucide-react';
 
 const UTMConverter = () => {
-  const [easting, setEasting] = useState('687000.73');
-  const [northing, setNorthing] = useState('4047011.07');
+  const [easting, setEasting] = useState('686989.37');
+  const [northing, setNorthing] = useState('4046996.29');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
 
-  // UTM to WGS84 conversion function for Zone 39N
+  // Improved UTM to WGS84 conversion function for Zone 39N
   const convertUTMToWGS84 = (easting: number, northing: number) => {
-    // Constants for WGS84 ellipsoid
-    const a = 6378137.0; // Semi-major axis
-    const e2 = 0.00669437999014; // First eccentricity squared
-    const k0 = 0.9996; // Scale factor
+    // WGS84 ellipsoid parameters
+    const a = 6378137.0; // Semi-major axis in meters
+    const f = 1 / 298.257223563; // Flattening
+    const e2 = 2 * f - f * f; // First eccentricity squared
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const k0 = 0.9996; // UTM scale factor
     
     // Zone 39N parameters
     const zone = 39;
-    const centralMeridian = (zone - 1) * 6 - 180 + 3; // Central meridian for zone 39
+    const centralMeridian = (zone - 1) * 6 - 180 + 3; // -57 degrees for zone 39
     
-    // Remove false easting and northing
+    // Remove false easting
     const x = easting - 500000;
     const y = northing;
     
@@ -29,40 +31,51 @@ const UTMConverter = () => {
     // Calculate footprint latitude
     const mu = M / (a * (1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
     
-    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
-    const J1 = 3 * e1 / 2 - 27 * e1 * e1 * e1 / 32;
-    const J2 = 21 * e1 * e1 / 16 - 55 * e1 * e1 * e1 * e1 / 32;
-    const J3 = 151 * e1 * e1 * e1 / 96;
-    const J4 = 1097 * e1 * e1 * e1 * e1 / 512;
+    // Calculate phi1 (footprint latitude)
+    const J1 = 3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32;
+    const J2 = 21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32;
+    const J3 = 151 * Math.pow(e1, 3) / 96;
+    const J4 = 1097 * Math.pow(e1, 4) / 512;
     
-    const fp = mu + J1 * Math.sin(2 * mu) + J2 * Math.sin(4 * mu) + J3 * Math.sin(6 * mu) + J4 * Math.sin(8 * mu);
+    const phi1 = mu + J1 * Math.sin(2 * mu) + J2 * Math.sin(4 * mu) + J3 * Math.sin(6 * mu) + J4 * Math.sin(8 * mu);
     
-    // Calculate latitude and longitude
+    // Calculate parameters for latitude and longitude
+    const sinPhi1 = Math.sin(phi1);
+    const cosPhi1 = Math.cos(phi1);
+    const tanPhi1 = Math.tan(phi1);
+    
     const e1sq = e2 / (1 - e2);
-    const C1 = e1sq * Math.cos(fp) * Math.cos(fp);
-    const T1 = Math.tan(fp) * Math.tan(fp);
-    const R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(fp) * Math.sin(fp), 1.5);
-    const N1 = a / Math.sqrt(1 - e2 * Math.sin(fp) * Math.sin(fp));
+    const C1 = e1sq * cosPhi1 * cosPhi1;
+    const T1 = tanPhi1 * tanPhi1;
+    const N1 = a / Math.sqrt(1 - e2 * sinPhi1 * sinPhi1);
+    const R1 = a * (1 - e2) / Math.pow(1 - e2 * sinPhi1 * sinPhi1, 1.5);
     const D = x / (N1 * k0);
     
-    // Calculate latitude in radians
-    const Q1 = N1 * Math.tan(fp) / R1;
+    // Calculate latitude
+    const Q1 = N1 * tanPhi1 / R1;
     const Q2 = D * D / 2;
-    const Q3 = (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * e1sq) * D * D * D * D / 24;
-    const Q4 = (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 1.6 * e1sq - 37 * e1sq * C1) * D * D * D * D * D * D / 720;
+    const Q3 = (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * e1sq) * Math.pow(D, 4) / 24;
+    const Q4 = (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 1.6 * e1sq - 37 * e1sq * C1) * Math.pow(D, 6) / 720;
     
-    const lat = fp - Q1 * (Q2 - Q3 + Q4);
+    const lat = phi1 - Q1 * (Q2 - Q3 + Q4);
     
-    // Calculate longitude in radians
+    // Calculate longitude
     const Q5 = D;
-    const Q6 = (1 + 2 * T1 + C1) * D * D * D / 6;
-    const Q7 = (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * e1sq + 24 * T1 * T1) * D * D * D * D * D / 120;
+    const Q6 = (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6;
+    const Q7 = (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * e1sq + 24 * T1 * T1) * Math.pow(D, 5) / 120;
     
-    const lon = centralMeridian + (Q5 - Q6 + Q7) / Math.cos(fp);
+    const lon = centralMeridian * Math.PI / 180 + (Q5 - Q6 + Q7) / cosPhi1;
     
     // Convert to degrees
     const latDeg = lat * 180 / Math.PI;
     const lonDeg = lon * 180 / Math.PI;
+    
+    console.log('Conversion details:', {
+      input: { easting, northing },
+      centralMeridian,
+      x, y, M, mu, phi1: phi1 * 180 / Math.PI,
+      output: { latDeg, lonDeg }
+    });
     
     return { latitude: latDeg, longitude: lonDeg };
   };
@@ -77,6 +90,7 @@ const UTMConverter = () => {
         setLatitude(result.latitude.toFixed(8));
         setLongitude(result.longitude.toFixed(8));
       } catch (error) {
+        console.error('Conversion error:', error);
         setLatitude('Invalid input');
         setLongitude('Invalid input');
       }
@@ -122,7 +136,7 @@ const UTMConverter = () => {
                     value={easting}
                     onChange={(e) => setEasting(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                    placeholder="687000.73"
+                    placeholder="686989.37"
                   />
                 </div>
 
@@ -135,7 +149,7 @@ const UTMConverter = () => {
                     value={northing}
                     onChange={(e) => setNorthing(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                    placeholder="4047011.07"
+                    placeholder="4046996.29"
                   />
                 </div>
               </div>
@@ -177,13 +191,13 @@ const UTMConverter = () => {
           <div className="grid md:grid-cols-2 gap-6 text-sm">
             <div className="bg-blue-50 p-4 rounded-lg">
               <h4 className="font-medium text-blue-800 mb-2">Input (UTM Zone 39N)</h4>
-              <p className="text-blue-700">X (Easting): 687000.73 m</p>
-              <p className="text-blue-700">Y (Northing): 4047011.07 m</p>
+              <p className="text-blue-700">X (Easting): 686989.37 m</p>
+              <p className="text-blue-700">Y (Northing): 4046996.29 m</p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <h4 className="font-medium text-green-800 mb-2">Output (WGS84)</h4>
-              <p className="text-green-700">Latitude: 36.55023238°</p>
-              <p className="text-green-700">Longitude: 53.08931887°</p>
+              <p className="text-green-700">Latitude: 36.55010145°</p>
+              <p className="text-green-700">Longitude: 53.08918844°</p>
             </div>
           </div>
         </div>
