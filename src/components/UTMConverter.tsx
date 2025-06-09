@@ -1,12 +1,30 @@
-
 import React, { useState, useEffect } from 'react';
-import { Calculator, MapPin, Globe } from 'lucide-react';
+import { Calculator, MapPin, Globe, Plus, Trash2, Download } from 'lucide-react';
+import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import JSZip from 'jszip';
+
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+interface Point {
+  id: string;
+  easting: string;
+  northing: string;
+  latitude: number;
+  longitude: number;
+}
 
 const UTMConverter = () => {
-  const [easting, setEasting] = useState('686989.37');
-  const [northing, setNorthing] = useState('4046996.29');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [points, setPoints] = useState<Point[]>([
+    { id: '1', easting: '686989.37', northing: '4046996.29', latitude: 0, longitude: 0 }
+  ]);
 
   // Improved UTM to WGS84 conversion function for Zone 39N
   const convertUTMToWGS84 = (easting: number, northing: number) => {
@@ -80,125 +98,275 @@ const UTMConverter = () => {
     return { latitude: latDeg, longitude: lonDeg };
   };
 
-  useEffect(() => {
-    const eastingNum = parseFloat(easting);
-    const northingNum = parseFloat(northing);
+  const calculatePolygonArea = (coords: [number, number][]): number => {
+    if (coords.length < 3) return 0;
     
-    if (!isNaN(eastingNum) && !isNaN(northingNum) && easting.trim() !== '' && northing.trim() !== '') {
-      try {
-        const result = convertUTMToWGS84(eastingNum, northingNum);
-        setLatitude(result.latitude.toFixed(8));
-        setLongitude(result.longitude.toFixed(8));
-      } catch (error) {
-        console.error('Conversion error:', error);
-        setLatitude('Invalid input');
-        setLongitude('Invalid input');
-      }
-    } else {
-      setLatitude('');
-      setLongitude('');
+    let area = 0;
+    const n = coords.length;
+    
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += coords[i][1] * coords[j][0];
+      area -= coords[j][1] * coords[i][0];
     }
-  }, [easting, northing]);
+    
+    return Math.abs(area) / 2;
+  };
+
+  const generateKMZ = async () => {
+    const validPoints = points.filter(p => 
+      !isNaN(parseFloat(p.easting)) && !isNaN(parseFloat(p.northing)) && 
+      p.easting.trim() !== '' && p.northing.trim() !== ''
+    );
+
+    if (validPoints.length < 2) return;
+
+    const coordinates = validPoints.map(p => `${p.longitude},${p.latitude},0`).join(' ');
+    
+    let geometryType = 'LineString';
+    let coords = coordinates;
+    
+    if (validPoints.length >= 3) {
+      geometryType = 'Polygon';
+      coords = `${coordinates} ${validPoints[0].longitude},${validPoints[0].latitude},0`;
+    }
+
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>UTM Converted ${geometryType}</name>
+    <Placemark>
+      <name>${geometryType === 'Polygon' ? 'Polygon' : 'Path'}</name>
+      <${geometryType}>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>${coords}</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </${geometryType}>
+    </Placemark>
+  </Document>
+</kml>`;
+
+    const zip = new JSZip();
+    zip.file('doc.kml', kml);
+    
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `utm_converted_${geometryType.toLowerCase()}.kmz`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => {
+    const updatedPoints = points.map(point => {
+      const eastingNum = parseFloat(point.easting);
+      const northingNum = parseFloat(point.northing);
+      
+      if (!isNaN(eastingNum) && !isNaN(northingNum) && point.easting.trim() !== '' && point.northing.trim() !== '') {
+        try {
+          const result = convertUTMToWGS84(eastingNum, northingNum);
+          return { ...point, latitude: result.latitude, longitude: result.longitude };
+        } catch (error) {
+          console.error('Conversion error:', error);
+          return { ...point, latitude: 0, longitude: 0 };
+        }
+      }
+      return { ...point, latitude: 0, longitude: 0 };
+    });
+    
+    setPoints(updatedPoints);
+  }, [points.map(p => `${p.easting}-${p.northing}`).join(',')]);
+
+  const addPoint = () => {
+    if (points.length < 4) {
+      setPoints([...points, { 
+        id: Date.now().toString(), 
+        easting: '', 
+        northing: '', 
+        latitude: 0, 
+        longitude: 0 
+      }]);
+    }
+  };
+
+  const removePoint = (id: string) => {
+    if (points.length > 1) {
+      setPoints(points.filter(p => p.id !== id));
+    }
+  };
+
+  const updatePoint = (id: string, field: 'easting' | 'northing', value: string) => {
+    setPoints(points.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const validPoints = points.filter(p => 
+    !isNaN(parseFloat(p.easting)) && !isNaN(parseFloat(p.northing)) && 
+    p.easting.trim() !== '' && p.northing.trim() !== '' &&
+    p.latitude !== 0 && p.longitude !== 0
+  );
+
+  const mapCenter: [number, number] = validPoints.length > 0 
+    ? [validPoints[0].latitude, validPoints[0].longitude]
+    : [36.55, 53.09];
+
+  const polygonCoords: [number, number][] = validPoints.map(p => [p.latitude, p.longitude]);
+  const area = validPoints.length >= 3 ? calculatePolygonArea(polygonCoords) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <Globe className="h-12 w-12 text-blue-600 mr-3" />
             <h1 className="text-4xl font-bold text-gray-800">UTM to WGS84 Converter</h1>
           </div>
-          <p className="text-gray-600 text-lg">Convert UTM Zone 39N coordinates to WGS84 geographic coordinates</p>
+          <p className="text-gray-600 text-lg">Convert UTM Zone 39N coordinates to WGS84 and visualize on map</p>
         </div>
 
-        {/* Main converter card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Input Section */}
-            <div className="space-y-6">
-              <div className="flex items-center mb-4">
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Input Section */}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
                 <Calculator className="h-6 w-6 text-blue-600 mr-2" />
                 <h2 className="text-2xl font-semibold text-gray-800">UTM Coordinates</h2>
               </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-700 font-medium mb-2">Zone: 39N | Datum: WGS 84</p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    X (Easting) - meters
-                  </label>
-                  <input
-                    type="text"
-                    value={easting}
-                    onChange={(e) => setEasting(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                    placeholder="686989.37"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Y (Northing) - meters
-                  </label>
-                  <input
-                    type="text"
-                    value={northing}
-                    onChange={(e) => setNorthing(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                    placeholder="4046996.29"
-                  />
-                </div>
-              </div>
+              <button
+                onClick={addPoint}
+                disabled={points.length >= 4}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Point
+              </button>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+              <p className="text-sm text-blue-700 font-medium">Zone: 39N | Datum: WGS 84</p>
             </div>
 
-            {/* Output Section */}
             <div className="space-y-6">
-              <div className="flex items-center mb-4">
-                <MapPin className="h-6 w-6 text-green-600 mr-2" />
-                <h2 className="text-2xl font-semibold text-gray-800">WGS84 Coordinates</h2>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-green-50 p-6 rounded-lg">
-                  <label className="block text-sm font-medium text-green-700 mb-2">
-                    Latitude (decimal degrees)
-                  </label>
-                  <div className="text-2xl font-mono text-green-800 bg-white p-3 rounded border">
-                    {latitude || '---'}°
+              {points.map((point, index) => (
+                <div key={point.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-700">Point {index + 1}</h3>
+                    {points.length > 1 && (
+                      <button
+                        onClick={() => removePoint(point.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        X (Easting) - meters
+                      </label>
+                      <input
+                        type="text"
+                        value={point.easting}
+                        onChange={(e) => updatePoint(point.id, 'easting', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="686989.37"
+                      />
+                    </div>
 
-                <div className="bg-green-50 p-6 rounded-lg">
-                  <label className="block text-sm font-medium text-green-700 mb-2">
-                    Longitude (decimal degrees)
-                  </label>
-                  <div className="text-2xl font-mono text-green-800 bg-white p-3 rounded border">
-                    {longitude || '---'}°
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Y (Northing) - meters
+                      </label>
+                      <input
+                        type="text"
+                        value={point.northing}
+                        onChange={(e) => updatePoint(point.id, 'northing', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="4046996.29"
+                      />
+                    </div>
                   </div>
+
+                  {point.latitude !== 0 && point.longitude !== 0 && (
+                    <div className="mt-4 grid md:grid-cols-2 gap-4">
+                      <div className="bg-green-50 p-3 rounded">
+                        <p className="text-sm text-green-700 font-medium">Latitude</p>
+                        <p className="text-green-800 font-mono">{point.latitude.toFixed(8)}°</p>
+                      </div>
+                      <div className="bg-green-50 p-3 rounded">
+                        <p className="text-sm text-green-700 font-medium">Longitude</p>
+                        <p className="text-green-800 font-mono">{point.longitude.toFixed(8)}°</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ))}
             </div>
+
+            {validPoints.length >= 3 && (
+              <div className="mt-6 bg-yellow-50 p-4 rounded-lg">
+                <p className="text-sm font-medium text-yellow-800 mb-2">Polygon Area</p>
+                <p className="text-xl font-mono text-yellow-900">{area.toFixed(2)} m²</p>
+              </div>
+            )}
+
+            {validPoints.length >= 2 && (
+              <button
+                onClick={generateKMZ}
+                className="mt-6 w-full flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Download KMZ File
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* Example section */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Example Conversion</h3>
-          <div className="grid md:grid-cols-2 gap-6 text-sm">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-800 mb-2">Input (UTM Zone 39N)</h4>
-              <p className="text-blue-700">X (Easting): 686989.37 m</p>
-              <p className="text-blue-700">Y (Northing): 4046996.29 m</p>
+          {/* Map Section */}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="flex items-center mb-6">
+              <MapPin className="h-6 w-6 text-green-600 mr-2" />
+              <h2 className="text-2xl font-semibold text-gray-800">Map Visualization</h2>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-medium text-green-800 mb-2">Output (WGS84)</h4>
-              <p className="text-green-700">Latitude: 36.55010145°</p>
-              <p className="text-green-700">Longitude: 53.08918844°</p>
-            </div>
+
+            {validPoints.length >= 2 ? (
+              <div className="h-96 rounded-lg overflow-hidden">
+                <MapContainer
+                  center={mapCenter}
+                  zoom={15}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  />
+                  
+                  {validPoints.map((point, index) => (
+                    <Marker key={point.id} position={[point.latitude, point.longitude]}>
+                      <Popup>
+                        Point {index + 1}<br />
+                        Lat: {point.latitude.toFixed(6)}°<br />
+                        Lng: {point.longitude.toFixed(6)}°
+                      </Popup>
+                    </Marker>
+                  ))}
+
+                  {validPoints.length >= 3 ? (
+                    <Polygon positions={polygonCoords} color="blue" />
+                  ) : (
+                    <Polyline positions={polygonCoords} color="red" />
+                  )}
+                </MapContainer>
+              </div>
+            ) : (
+              <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+                <p className="text-gray-500">Enter at least 2 points to display map</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
