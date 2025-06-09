@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Calculator, MapPin, Globe, Plus, Trash2, Download } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
@@ -19,12 +20,55 @@ interface Point {
   northing: string;
   latitude: number;
   longitude: number;
+  label: string;
 }
 
 const UTMConverter = () => {
   const [points, setPoints] = useState<Point[]>([
-    { id: '1', easting: '686989.37', northing: '4046996.29', latitude: 0, longitude: 0 }
+    { id: '1', easting: '686989.37', northing: '4046996.29', latitude: 0, longitude: 0, label: 'A' }
   ]);
+
+  // Function to calculate distance between two lat/lng points in meters
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Calculate edge lengths
+  const calculateEdgeLengths = (): { label: string; length: number }[] => {
+    if (validPoints.length < 2) return [];
+    
+    const edges: { label: string; length: number }[] = [];
+    
+    for (let i = 0; i < validPoints.length - 1; i++) {
+      const p1 = validPoints[i];
+      const p2 = validPoints[i + 1];
+      const distance = calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+      edges.push({
+        label: `${p1.label} → ${p2.label}`,
+        length: distance
+      });
+    }
+    
+    // If it's a polygon (4+ points), add the closing edge
+    if (validPoints.length >= 4) {
+      const lastPoint = validPoints[validPoints.length - 1];
+      const firstPoint = validPoints[0];
+      const distance = calculateDistance(lastPoint.latitude, lastPoint.longitude, firstPoint.latitude, firstPoint.longitude);
+      edges.push({
+        label: `${lastPoint.label} → ${firstPoint.label}`,
+        length: distance
+      });
+    }
+    
+    return edges;
+  };
 
   // Improved UTM to WGS84 conversion function for Zone 39N
   const convertUTMToWGS84 = (easting: number, northing: number) => {
@@ -99,7 +143,7 @@ const UTMConverter = () => {
   };
 
   const calculatePolygonArea = (coords: [number, number][]): number => {
-    if (coords.length < 3) return 0;
+    if (coords.length < 4) return 0; // Need at least 4 points for a polygon
     
     let area = 0;
     const n = coords.length;
@@ -114,21 +158,21 @@ const UTMConverter = () => {
   };
 
   const generateKMZ = async () => {
-    const validPoints = points.filter(p => 
-      !isNaN(parseFloat(p.easting)) && !isNaN(parseFloat(p.northing)) && 
-      p.easting.trim() !== '' && p.northing.trim() !== ''
-    );
-
     if (validPoints.length < 2) return;
 
     const coordinates = validPoints.map(p => `${p.longitude},${p.latitude},0`).join(' ');
     
-    let geometryType = 'LineString';
-    let coords = coordinates;
+    let geometryType: string;
+    let coords: string;
     
-    if (validPoints.length >= 3) {
+    if (validPoints.length === 3) {
+      geometryType = 'LineString';
+      coords = coordinates;
+    } else if (validPoints.length >= 4) {
       geometryType = 'Polygon';
       coords = `${coordinates} ${validPoints[0].longitude},${validPoints[0].latitude},0`;
+    } else {
+      return;
     }
 
     const kml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -137,13 +181,17 @@ const UTMConverter = () => {
     <name>UTM Converted ${geometryType}</name>
     <Placemark>
       <name>${geometryType === 'Polygon' ? 'Polygon' : 'Path'}</name>
-      <${geometryType}>
+      ${geometryType === 'Polygon' ? `
+      <Polygon>
         <outerBoundaryIs>
           <LinearRing>
             <coordinates>${coords}</coordinates>
           </LinearRing>
         </outerBoundaryIs>
-      </${geometryType}>
+      </Polygon>` : `
+      <LineString>
+        <coordinates>${coords}</coordinates>
+      </LineString>`}
     </Placemark>
   </Document>
 </kml>`;
@@ -160,41 +208,59 @@ const UTMConverter = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Generate alphabetical labels
+  const generateLabel = (index: number): string => {
+    return String.fromCharCode(65 + index); // A, B, C, D, ...
+  };
+
   useEffect(() => {
-    const updatedPoints = points.map(point => {
+    const updatedPoints = points.map((point, index) => {
       const eastingNum = parseFloat(point.easting);
       const northingNum = parseFloat(point.northing);
       
       if (!isNaN(eastingNum) && !isNaN(northingNum) && point.easting.trim() !== '' && point.northing.trim() !== '') {
         try {
           const result = convertUTMToWGS84(eastingNum, northingNum);
-          return { ...point, latitude: result.latitude, longitude: result.longitude };
+          return { 
+            ...point, 
+            latitude: result.latitude, 
+            longitude: result.longitude,
+            label: generateLabel(index)
+          };
         } catch (error) {
           console.error('Conversion error:', error);
-          return { ...point, latitude: 0, longitude: 0 };
+          return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
         }
       }
-      return { ...point, latitude: 0, longitude: 0 };
+      return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
     });
     
     setPoints(updatedPoints);
   }, [points.map(p => `${p.easting}-${p.northing}`).join(',')]);
 
   const addPoint = () => {
-    if (points.length < 4) {
+    if (points.length < 10) { // Allow up to 10 points (A-J)
+      const newIndex = points.length;
       setPoints([...points, { 
         id: Date.now().toString(), 
         easting: '', 
         northing: '', 
         latitude: 0, 
-        longitude: 0 
+        longitude: 0,
+        label: generateLabel(newIndex)
       }]);
     }
   };
 
   const removePoint = (id: string) => {
     if (points.length > 1) {
-      setPoints(points.filter(p => p.id !== id));
+      const filteredPoints = points.filter(p => p.id !== id);
+      // Relabel remaining points
+      const relabeledPoints = filteredPoints.map((point, index) => ({
+        ...point,
+        label: generateLabel(index)
+      }));
+      setPoints(relabeledPoints);
     }
   };
 
@@ -213,7 +279,9 @@ const UTMConverter = () => {
     : [36.55, 53.09];
 
   const polygonCoords: [number, number][] = validPoints.map(p => [p.latitude, p.longitude]);
-  const area = validPoints.length >= 3 ? calculatePolygonArea(polygonCoords) : 0;
+  const isPolygon = validPoints.length >= 4;
+  const area = isPolygon ? calculatePolygonArea(polygonCoords) : 0;
+  const edgeLengths = calculateEdgeLengths();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4">
@@ -237,7 +305,7 @@ const UTMConverter = () => {
               </div>
               <button
                 onClick={addPoint}
-                disabled={points.length >= 4}
+                disabled={points.length >= 10}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -247,13 +315,19 @@ const UTMConverter = () => {
             
             <div className="bg-blue-50 p-4 rounded-lg mb-6">
               <p className="text-sm text-blue-700 font-medium">Zone: 39N | Datum: WGS 84</p>
+              <p className="text-xs text-blue-600 mt-1">
+                {validPoints.length === 3 && "3 points = Path (Polyline)"}
+                {validPoints.length >= 4 && "4+ points = Polygon"}
+              </p>
             </div>
 
             <div className="space-y-6">
               {points.map((point, index) => (
                 <div key={point.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-700">Point {index + 1}</h3>
+                    <h3 className="text-lg font-medium text-gray-700">
+                      Point {point.label}
+                    </h3>
                     {points.length > 1 && (
                       <button
                         onClick={() => removePoint(point.id)}
@@ -308,7 +382,23 @@ const UTMConverter = () => {
               ))}
             </div>
 
-            {validPoints.length >= 3 && (
+            {/* Edge Lengths */}
+            {edgeLengths.length > 0 && (
+              <div className="mt-6 bg-purple-50 p-4 rounded-lg">
+                <p className="text-sm font-medium text-purple-800 mb-3">Edge Lengths</p>
+                <div className="space-y-2">
+                  {edgeLengths.map((edge, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <span className="text-purple-700 font-medium">{edge.label}</span>
+                      <span className="text-purple-900 font-mono">{edge.length.toFixed(2)} m</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Polygon Area */}
+            {isPolygon && (
               <div className="mt-6 bg-yellow-50 p-4 rounded-lg">
                 <p className="text-sm font-medium text-yellow-800 mb-2">Polygon Area</p>
                 <p className="text-xl font-mono text-yellow-900">{area.toFixed(2)} m²</p>
@@ -321,7 +411,7 @@ const UTMConverter = () => {
                 className="mt-6 w-full flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 <Download className="h-5 w-5 mr-2" />
-                Download KMZ File
+                Download KMZ File ({validPoints.length === 3 ? 'Path' : 'Polygon'})
               </button>
             )}
           </div>
@@ -345,21 +435,21 @@ const UTMConverter = () => {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   />
                   
-                  {validPoints.map((point, index) => (
+                  {validPoints.map((point) => (
                     <Marker key={point.id} position={[point.latitude, point.longitude]}>
                       <Popup>
-                        Point {index + 1}<br />
+                        Point {point.label}<br />
                         Lat: {point.latitude.toFixed(6)}°<br />
                         Lng: {point.longitude.toFixed(6)}°
                       </Popup>
                     </Marker>
                   ))}
 
-                  {validPoints.length >= 3 ? (
-                    <Polygon positions={polygonCoords} pathOptions={{ color: "blue" }} />
-                  ) : (
-                    <Polyline positions={polygonCoords} pathOptions={{ color: "red" }} />
-                  )}
+                  {validPoints.length === 3 ? (
+                    <Polyline positions={polygonCoords} pathOptions={{ color: "red", weight: 3 }} />
+                  ) : validPoints.length >= 4 ? (
+                    <Polygon positions={polygonCoords} pathOptions={{ color: "blue", weight: 3, fillOpacity: 0.2 }} />
+                  ) : null}
                 </MapContainer>
               </div>
             ) : (
