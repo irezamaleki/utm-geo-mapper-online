@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Calculator, MapPin, Globe, Plus, Trash2, Download, Upload } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
@@ -138,14 +139,55 @@ const UTMConverter = () => {
     const latDeg = lat * 180 / Math.PI;
     const lonDeg = lon * 180 / Math.PI;
     
-    console.log('Conversion details:', {
+    console.log('UTM to WGS84 conversion:', {
       input: { easting, northing },
-      centralMeridian,
-      x, y, M, mu, phi1: phi1 * 180 / Math.PI,
       output: { latDeg, lonDeg }
     });
     
     return { latitude: latDeg, longitude: lonDeg };
+  };
+
+  // WGS84 to UTM conversion (Zone 39N)
+  const convertWGS84ToUTM = (lat: number, lng: number) => {
+    const zone = 39;
+    const centralMeridian = (zone - 1) * 6 - 180 + 3; // 51 degrees for zone 39
+    const a = 6378137.0;
+    const f = 1 / 298.257223563;
+    const k0 = 0.9996;
+    const e2 = 2 * f - f * f;
+
+    const latRad = lat * Math.PI / 180;
+    const lngRad = lng * Math.PI / 180;
+    const centralMeridianRad = centralMeridian * Math.PI / 180;
+
+    const deltaLng = lngRad - centralMeridianRad;
+    
+    const sinLat = Math.sin(latRad);
+    const cosLat = Math.cos(latRad);
+    const tanLat = Math.tan(latRad);
+    
+    const N = a / Math.sqrt(1 - e2 * sinLat * sinLat);
+    const T = tanLat * tanLat;
+    const C = (e2 / (1 - e2)) * cosLat * cosLat;
+    const A = cosLat * deltaLng;
+    
+    const M = a * ((1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256) * latRad
+                - (3*e2/8 + 3*e2*e2/32 + 45*e2*e2*e2/1024) * Math.sin(2 * latRad)
+                + (15*e2*e2/256 + 45*e2*e2*e2/1024) * Math.sin(4 * latRad)
+                - (35*e2*e2*e2/3072) * Math.sin(6 * latRad));
+    
+    const easting = 500000 + k0 * N * (A + (1 - T + C) * Math.pow(A, 3) / 6
+                    + (5 - 18*T + T*T + 72*C - 58*(e2/(1-e2))) * Math.pow(A, 5) / 120);
+    
+    const northing = k0 * (M + N * tanLat * (A*A/2 + (5 - T + 9*C + 4*C*C) * Math.pow(A, 4) / 24
+                     + (61 - 58*T + T*T + 600*C - 330*(e2/(1-e2))) * Math.pow(A, 6) / 720));
+
+    console.log('WGS84 to UTM conversion:', {
+      input: { lat, lng },
+      output: { easting, northing }
+    });
+
+    return { easting, northing: northing < 0 ? northing + 10000000 : northing };
   };
 
   // Proper geographic area calculation using the shoelace formula with spherical coordinates
@@ -178,58 +220,62 @@ const UTMConverter = () => {
     return area;
   };
 
-  // New function to parse KML/KMZ files
+  // Improved KML parsing function
   const parseKMLContent = (kmlContent: string): Point[] => {
+    console.log('Parsing KML content:', kmlContent.substring(0, 500));
+    
     const parser = new DOMParser();
     const kmlDoc = parser.parseFromString(kmlContent, 'text/xml');
-    const coordinates = kmlDoc.getElementsByTagName('coordinates');
     const parsedPoints: Point[] = [];
 
-    if (coordinates.length > 0) {
-      const coordText = coordinates[0].textContent?.trim();
+    // Check for XML parsing errors
+    const parserError = kmlDoc.querySelector('parsererror');
+    if (parserError) {
+      console.error('XML parsing error:', parserError.textContent);
+      return [];
+    }
+
+    // Try multiple ways to find coordinates
+    const coordinatesElements = kmlDoc.getElementsByTagName('coordinates');
+    console.log('Found coordinates elements:', coordinatesElements.length);
+
+    for (let i = 0; i < coordinatesElements.length; i++) {
+      const coordElement = coordinatesElements[i];
+      const coordText = coordElement.textContent?.trim();
+      console.log('Coordinate text:', coordText);
+      
       if (coordText) {
-        const coordPairs = coordText.split(/\s+/);
+        // Split by whitespace, newlines, or commas outside of coordinate pairs
+        const coordPairs = coordText.split(/\s+/).filter(pair => pair.trim() !== '');
+        console.log('Coordinate pairs:', coordPairs);
+        
         coordPairs.forEach((pair, index) => {
-          const [lng, lat] = pair.split(',').map(Number);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            // Convert lat/lng back to UTM for consistency
-            const utmCoords = convertWGS84ToUTM(lat, lng);
-            parsedPoints.push({
-              id: Date.now().toString() + index,
-              easting: utmCoords.easting.toFixed(2),
-              northing: utmCoords.northing.toFixed(2),
-              latitude: lat,
-              longitude: lng,
-              label: generateLabel(index)
-            });
+          const coords = pair.split(',');
+          if (coords.length >= 2) {
+            const lng = parseFloat(coords[0]);
+            const lat = parseFloat(coords[1]);
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+              console.log('Adding point:', { lat, lng });
+              
+              // Convert to UTM for storage consistency
+              const utmCoords = convertWGS84ToUTM(lat, lng);
+              parsedPoints.push({
+                id: `kml_${Date.now()}_${index}`,
+                easting: utmCoords.easting.toFixed(2),
+                northing: utmCoords.northing.toFixed(2),
+                latitude: lat,
+                longitude: lng,
+                label: generateLabel(index)
+              });
+            }
           }
         });
       }
     }
 
+    console.log('Parsed points:', parsedPoints);
     return parsedPoints;
-  };
-
-  // Simple WGS84 to UTM conversion (Zone 39N)
-  const convertWGS84ToUTM = (lat: number, lng: number) => {
-    // Simplified conversion - this is an approximation
-    const zone = 39;
-    const centralMeridian = (zone - 1) * 6 - 180 + 3;
-    const a = 6378137.0;
-    const f = 1 / 298.257223563;
-    const k0 = 0.9996;
-
-    const latRad = lat * Math.PI / 180;
-    const lngRad = lng * Math.PI / 180;
-    const centralMeridianRad = centralMeridian * Math.PI / 180;
-
-    const deltaLng = lngRad - centralMeridianRad;
-    
-    // Simplified UTM calculation
-    const easting = 500000 + k0 * a * deltaLng * Math.cos(latRad);
-    const northing = k0 * a * latRad;
-
-    return { easting, northing: northing < 0 ? northing + 10000000 : northing };
   };
 
   // Handle file upload
@@ -237,25 +283,43 @@ const UTMConverter = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log('Uploading file:', file.name, file.type);
+
     try {
       let kmlContent = '';
       
-      if (file.name.endsWith('.kmz')) {
+      if (file.name.toLowerCase().endsWith('.kmz')) {
+        console.log('Processing KMZ file');
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(file);
-        const kmlFile = zipContent.file('doc.kml');
-        if (kmlFile) {
+        
+        // Look for KML files in the zip
+        const kmlFiles = Object.keys(zipContent.files).filter(name => 
+          name.toLowerCase().endsWith('.kml')
+        );
+        
+        console.log('Found KML files in KMZ:', kmlFiles);
+        
+        if (kmlFiles.length > 0) {
+          const kmlFile = zipContent.files[kmlFiles[0]];
           kmlContent = await kmlFile.async('text');
         }
-      } else if (file.name.endsWith('.kml')) {
+      } else if (file.name.toLowerCase().endsWith('.kml')) {
+        console.log('Processing KML file');
         kmlContent = await file.text();
       }
 
       if (kmlContent) {
+        console.log('KML content length:', kmlContent.length);
         const parsedPoints = parseKMLContent(kmlContent);
         if (parsedPoints.length > 0) {
           setPoints(parsedPoints);
+          console.log('Successfully loaded', parsedPoints.length, 'points from file');
+        } else {
+          console.error('No valid points found in the file');
         }
+      } else {
+        console.error('No KML content found in the file');
       }
     } catch (error) {
       console.error('Error parsing file:', error);
@@ -324,6 +388,7 @@ const UTMConverter = () => {
   useEffect(() => {
     const updatedPoints = points.map((point, index) => {
       if (coordinateFormat === 'utm') {
+        // UTM mode: easting = X, northing = Y
         const eastingNum = parseFloat(point.easting);
         const northingNum = parseFloat(point.northing);
         
@@ -337,14 +402,14 @@ const UTMConverter = () => {
               label: generateLabel(index)
             };
           } catch (error) {
-            console.error('Conversion error:', error);
+            console.error('UTM conversion error:', error);
             return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
           }
         }
       } else {
-        // For lat/lng format, use the values directly
-        const lat = parseFloat(point.easting); // Using easting field for latitude
-        const lng = parseFloat(point.northing); // Using northing field for longitude
+        // WGS84 mode: easting = latitude, northing = longitude
+        const lat = parseFloat(point.easting);
+        const lng = parseFloat(point.northing);
         
         if (!isNaN(lat) && !isNaN(lng) && point.easting.trim() !== '' && point.northing.trim() !== '') {
           return {
@@ -530,12 +595,34 @@ const UTMConverter = () => {
                   {point.latitude !== 0 && point.longitude !== 0 && (
                     <div className="mt-4 grid md:grid-cols-2 gap-4">
                       <div className="bg-green-50 p-3 rounded">
-                        <p className="text-sm text-green-700 font-medium">Latitude</p>
+                        <p className="text-sm text-green-700 font-medium">
+                          {coordinateFormat === 'utm' ? 'Converted Latitude' : 'Latitude'}
+                        </p>
                         <p className="text-green-800 font-mono">{point.latitude.toFixed(8)}°</p>
                       </div>
                       <div className="bg-green-50 p-3 rounded">
-                        <p className="text-sm text-green-700 font-medium">Longitude</p>
+                        <p className="text-sm text-green-700 font-medium">
+                          {coordinateFormat === 'utm' ? 'Converted Longitude' : 'Longitude'}
+                        </p>
                         <p className="text-green-800 font-mono">{point.longitude.toFixed(8)}°</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* UTM conversion display for WGS84 mode */}
+                  {coordinateFormat === 'latlng' && point.latitude !== 0 && point.longitude !== 0 && (
+                    <div className="mt-4 grid md:grid-cols-2 gap-4">
+                      <div className="bg-blue-50 p-3 rounded">
+                        <p className="text-sm text-blue-700 font-medium">UTM X (Easting)</p>
+                        <p className="text-blue-800 font-mono">
+                          {convertWGS84ToUTM(point.latitude, point.longitude).easting.toFixed(2)} m
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded">
+                        <p className="text-sm text-blue-700 font-medium">UTM Y (Northing)</p>
+                        <p className="text-blue-800 font-mono">
+                          {convertWGS84ToUTM(point.latitude, point.longitude).northing.toFixed(2)} m
+                        </p>
                       </div>
                     </div>
                   )}
