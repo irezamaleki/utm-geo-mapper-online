@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, MapPin, Globe, Plus, Trash2, Download } from 'lucide-react';
+import { Calculator, MapPin, Globe, Plus, Trash2, Download, Upload } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import JSZip from 'jszip';
@@ -22,10 +26,13 @@ interface Point {
   label: string;
 }
 
+type CoordinateFormat = 'utm' | 'latlng';
+
 const UTMConverter = () => {
   const [points, setPoints] = useState<Point[]>([
     { id: '1', easting: '686989.37', northing: '4046996.29', latitude: 0, longitude: 0, label: 'A' }
   ]);
+  const [coordinateFormat, setCoordinateFormat] = useState<CoordinateFormat>('utm');
 
   // Function to calculate distance between two lat/lng points in meters
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -45,7 +52,7 @@ const UTMConverter = () => {
     
     const edges: { label: string; length: number }[] = [];
     
-    for (let i = 0; i < validPoints.length - 1; i++) {
+    for (let i = 0; < validPoints.length - 1; i++) {
       const p1 = validPoints[i];
       const p2 = validPoints[i + 1];
       const distance = calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
@@ -171,6 +178,93 @@ const UTMConverter = () => {
     return area;
   };
 
+  // New function to parse KML/KMZ files
+  const parseKMLContent = (kmlContent: string): Point[] => {
+    const parser = new DOMParser();
+    const kmlDoc = parser.parseFromString(kmlContent, 'text/xml');
+    const coordinates = kmlDoc.getElementsByTagName('coordinates');
+    const parsedPoints: Point[] = [];
+
+    if (coordinates.length > 0) {
+      const coordText = coordinates[0].textContent?.trim();
+      if (coordText) {
+        const coordPairs = coordText.split(/\s+/);
+        coordPairs.forEach((pair, index) => {
+          const [lng, lat] = pair.split(',').map(Number);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            // Convert lat/lng back to UTM for consistency
+            const utmCoords = convertWGS84ToUTM(lat, lng);
+            parsedPoints.push({
+              id: Date.now().toString() + index,
+              easting: utmCoords.easting.toFixed(2),
+              northing: utmCoords.northing.toFixed(2),
+              latitude: lat,
+              longitude: lng,
+              label: generateLabel(index)
+            });
+          }
+        });
+      }
+    }
+
+    return parsedPoints;
+  };
+
+  // Simple WGS84 to UTM conversion (Zone 39N)
+  const convertWGS84ToUTM = (lat: number, lng: number) => {
+    // Simplified conversion - this is an approximation
+    const zone = 39;
+    const centralMeridian = (zone - 1) * 6 - 180 + 3;
+    const a = 6378137.0;
+    const f = 1 / 298.257223563;
+    const k0 = 0.9996;
+
+    const latRad = lat * Math.PI / 180;
+    const lngRad = lng * Math.PI / 180;
+    const centralMeridianRad = centralMeridian * Math.PI / 180;
+
+    const deltaLng = lngRad - centralMeridianRad;
+    
+    // Simplified UTM calculation
+    const easting = 500000 + k0 * a * deltaLng * Math.cos(latRad);
+    const northing = k0 * a * latRad;
+
+    return { easting, northing: northing < 0 ? northing + 10000000 : northing };
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      let kmlContent = '';
+      
+      if (file.name.endsWith('.kmz')) {
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+        const kmlFile = zipContent.file('doc.kml');
+        if (kmlFile) {
+          kmlContent = await kmlFile.async('text');
+        }
+      } else if (file.name.endsWith('.kml')) {
+        kmlContent = await file.text();
+      }
+
+      if (kmlContent) {
+        const parsedPoints = parseKMLContent(kmlContent);
+        if (parsedPoints.length > 0) {
+          setPoints(parsedPoints);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing file:', error);
+    }
+
+    // Reset file input
+    event.target.value = '';
+  };
+
   const generateKMZ = async () => {
     if (validPoints.length < 2) return;
 
@@ -229,28 +323,43 @@ const UTMConverter = () => {
 
   useEffect(() => {
     const updatedPoints = points.map((point, index) => {
-      const eastingNum = parseFloat(point.easting);
-      const northingNum = parseFloat(point.northing);
-      
-      if (!isNaN(eastingNum) && !isNaN(northingNum) && point.easting.trim() !== '' && point.northing.trim() !== '') {
-        try {
-          const result = convertUTMToWGS84(eastingNum, northingNum);
-          return { 
-            ...point, 
-            latitude: result.latitude, 
-            longitude: result.longitude,
+      if (coordinateFormat === 'utm') {
+        const eastingNum = parseFloat(point.easting);
+        const northingNum = parseFloat(point.northing);
+        
+        if (!isNaN(eastingNum) && !isNaN(northingNum) && point.easting.trim() !== '' && point.northing.trim() !== '') {
+          try {
+            const result = convertUTMToWGS84(eastingNum, northingNum);
+            return { 
+              ...point, 
+              latitude: result.latitude, 
+              longitude: result.longitude,
+              label: generateLabel(index)
+            };
+          } catch (error) {
+            console.error('Conversion error:', error);
+            return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
+          }
+        }
+      } else {
+        // For lat/lng format, use the values directly
+        const lat = parseFloat(point.easting); // Using easting field for latitude
+        const lng = parseFloat(point.northing); // Using northing field for longitude
+        
+        if (!isNaN(lat) && !isNaN(lng) && point.easting.trim() !== '' && point.northing.trim() !== '') {
+          return {
+            ...point,
+            latitude: lat,
+            longitude: lng,
             label: generateLabel(index)
           };
-        } catch (error) {
-          console.error('Conversion error:', error);
-          return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
         }
       }
       return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
     });
     
     setPoints(updatedPoints);
-  }, [points.map(p => `${p.easting}-${p.northing}`).join(',')]);
+  }, [points.map(p => `${p.easting}-${p.northing}`).join(','), coordinateFormat]);
 
   const addPoint = () => {
     if (points.length < 10) { // Allow up to 10 points (A-J)
@@ -306,29 +415,65 @@ const UTMConverter = () => {
             <Globe className="h-12 w-12 text-blue-600 mr-3" />
             <h1 className="text-4xl font-bold text-gray-800">UTM to WGS84 Converter</h1>
           </div>
-          <p className="text-gray-600 text-lg">Convert UTM Zone 39N coordinates to WGS84 and visualize on map</p>
+          <p className="text-gray-600 text-lg">Convert coordinates and visualize on map</p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Input Section */}
           <div className="bg-white rounded-2xl shadow-xl p-8">
+            {/* Coordinate Format Selection */}
+            <div className="mb-6">
+              <Label className="text-lg font-semibold text-gray-800 mb-4 block">
+                Coordinate Format
+              </Label>
+              <RadioGroup value={coordinateFormat} onValueChange={(value: CoordinateFormat) => setCoordinateFormat(value)}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="utm" id="utm" />
+                  <Label htmlFor="utm">UTM Zone 39N (X/Y meters)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="latlng" id="latlng" />
+                  <Label htmlFor="latlng">WGS84 (Latitude/Longitude degrees)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* File Upload */}
+            <div className="mb-6">
+              <Label className="text-lg font-semibold text-gray-800 mb-4 block">
+                Import KML/KMZ File
+              </Label>
+              <div className="relative">
+                <Input
+                  type="file"
+                  accept=".kml,.kmz"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <Label
+                  htmlFor="file-upload"
+                  className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50"
+                >
+                  <Upload className="h-5 w-5 mr-2 text-gray-500" />
+                  <span className="text-gray-600">Upload KML/KMZ file</span>
+                </Label>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Calculator className="h-6 w-6 text-blue-600 mr-2" />
-                <h2 className="text-2xl font-semibold text-gray-800">UTM Coordinates</h2>
+                <h2 className="text-2xl font-semibold text-gray-800">
+                  {coordinateFormat === 'utm' ? 'UTM Coordinates' : 'WGS84 Coordinates'}
+                </h2>
               </div>
-              <button
-                onClick={addPoint}
-                disabled={points.length >= 10}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Point
-              </button>
             </div>
             
             <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <p className="text-sm text-blue-700 font-medium">Zone: 39N | Datum: WGS 84</p>
+              <p className="text-sm text-blue-700 font-medium">
+                {coordinateFormat === 'utm' ? 'Zone: 39N | Datum: WGS 84' : 'Datum: WGS 84'}
+              </p>
               <p className="text-xs text-blue-600 mt-1">
                 {validPoints.length === 3 && "3 points = Path (Polyline)"}
                 {validPoints.length >= 4 && "4+ points = Polygon"}
@@ -343,39 +488,41 @@ const UTMConverter = () => {
                       Point {point.label}
                     </h3>
                     {points.length > 1 && (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => removePoint(point.id)}
                         className="text-red-600 hover:text-red-800"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Button>
                     )}
                   </div>
                   
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        X (Easting) - meters
-                      </label>
-                      <input
+                      <Label className="block text-sm font-medium text-gray-700 mb-2">
+                        {coordinateFormat === 'utm' ? 'X (Easting) - meters' : 'Latitude - degrees'}
+                      </Label>
+                      <Input
                         type="text"
                         value={point.easting}
                         onChange={(e) => updatePoint(point.id, 'easting', e.target.value)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="686989.37"
+                        placeholder={coordinateFormat === 'utm' ? '686989.37' : '36.5500000'}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Y (Northing) - meters
-                      </label>
-                      <input
+                      <Label className="block text-sm font-medium text-gray-700 mb-2">
+                        {coordinateFormat === 'utm' ? 'Y (Northing) - meters' : 'Longitude - degrees'}
+                      </Label>
+                      <Input
                         type="text"
                         value={point.northing}
                         onChange={(e) => updatePoint(point.id, 'northing', e.target.value)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="4046996.29"
+                        placeholder={coordinateFormat === 'utm' ? '4046996.29' : '53.0900000'}
                       />
                     </div>
                   </div>
@@ -390,6 +537,20 @@ const UTMConverter = () => {
                         <p className="text-sm text-green-700 font-medium">Longitude</p>
                         <p className="text-green-800 font-mono">{point.longitude.toFixed(8)}°</p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Add Point button at the bottom of each point box */}
+                  {index === points.length - 1 && points.length < 10 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <Button
+                        onClick={addPoint}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Point
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -420,13 +581,14 @@ const UTMConverter = () => {
             )}
 
             {validPoints.length >= 2 && (
-              <button
+              <Button
                 onClick={generateKMZ}
-                className="mt-6 w-full flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="mt-6 w-full"
+                variant="default"
               >
                 <Download className="h-5 w-5 mr-2" />
                 Download KMZ File ({validPoints.length === 3 ? 'Path' : 'Polygon'})
-              </button>
+              </Button>
             )}
           </div>
 
