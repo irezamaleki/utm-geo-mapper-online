@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Calculator, MapPin, Globe, Plus, Trash2, Download, Upload } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
@@ -31,7 +30,7 @@ type CoordinateFormat = 'utm' | 'latlng';
 
 const UTMConverter = () => {
   const [points, setPoints] = useState<Point[]>([
-    { id: '1', easting: '686989.37', northing: '4046996.29', latitude: 0, longitude: 0, label: 'A' }
+    { id: '1', easting: '', northing: '', latitude: 0, longitude: 0, label: 'A' }
   ]);
   const [coordinateFormat, setCoordinateFormat] = useState<CoordinateFormat>('utm');
 
@@ -592,18 +591,15 @@ const UTMConverter = () => {
                     </div>
                   </div>
 
-                  {point.latitude !== 0 && point.longitude !== 0 && (
+                  {/* Conversion display - only show for UTM mode */}
+                  {coordinateFormat === 'utm' && point.latitude !== 0 && point.longitude !== 0 && (
                     <div className="mt-4 grid md:grid-cols-2 gap-4">
                       <div className="bg-green-50 p-3 rounded">
-                        <p className="text-sm text-green-700 font-medium">
-                          {coordinateFormat === 'utm' ? 'Converted Latitude' : 'Latitude'}
-                        </p>
+                        <p className="text-sm text-green-700 font-medium">Converted Latitude</p>
                         <p className="text-green-800 font-mono">{point.latitude.toFixed(8)}°</p>
                       </div>
                       <div className="bg-green-50 p-3 rounded">
-                        <p className="text-sm text-green-700 font-medium">
-                          {coordinateFormat === 'utm' ? 'Converted Longitude' : 'Longitude'}
-                        </p>
+                        <p className="text-sm text-green-700 font-medium">Converted Longitude</p>
                         <p className="text-green-800 font-mono">{point.longitude.toFixed(8)}°</p>
                       </div>
                     </div>
