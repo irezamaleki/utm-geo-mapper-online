@@ -189,30 +189,31 @@ const UTMConverter = () => {
     return { easting, northing: northing < 0 ? northing + 10000000 : northing };
   };
 
-  // Proper geographic area calculation using the shoelace formula with spherical coordinates
+  // Corrected polygon area calculation using UTM coordinates
   const calculatePolygonArea = (coords: [number, number][]): number => {
     if (coords.length < 4) return 0; // Need at least 4 points for a polygon
     
-    // Convert to radians
-    const coordsRad = coords.map(([lat, lon]) => [lat * Math.PI / 180, lon * Math.PI / 180]);
+    // Convert coordinates to UTM for accurate area calculation
+    const utmCoords = coords.map(([lat, lon]) => {
+      const utm = convertWGS84ToUTM(lat, lon);
+      return [utm.easting, utm.northing];
+    });
     
+    // Use shoelace formula with UTM coordinates
     let area = 0;
-    const R = 6371000; // Earth's radius in meters
+    const n = utmCoords.length;
     
-    // Use spherical excess formula for more accurate area calculation
-    for (let i = 0; i < coordsRad.length; i++) {
-      const j = (i + 1) % coordsRad.length;
-      const [lat1, lon1] = coordsRad[i];
-      const [lat2, lon2] = coordsRad[j];
-      
-      area += (lon2 - lon1) * Math.sin((lat1 + lat2) / 2);
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += utmCoords[i][0] * utmCoords[j][1];
+      area -= utmCoords[j][0] * utmCoords[i][1];
     }
     
-    area = Math.abs(area) * R * R / 2;
+    area = Math.abs(area) / 2;
     
     console.log('Area calculation:', {
       coords: coords,
-      coordsRad: coordsRad,
+      utmCoords: utmCoords,
       calculatedArea: area
     });
     
@@ -386,6 +387,8 @@ const UTMConverter = () => {
 
   useEffect(() => {
     const updatedPoints = points.map((point, index) => {
+      const label = generateLabel(index);
+      
       if (coordinateFormat === 'utm') {
         // UTM mode: easting = X, northing = Y
         const eastingNum = parseFloat(point.easting);
@@ -398,11 +401,11 @@ const UTMConverter = () => {
               ...point, 
               latitude: result.latitude, 
               longitude: result.longitude,
-              label: generateLabel(index)
+              label
             };
           } catch (error) {
             console.error('UTM conversion error:', error);
-            return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
+            return { ...point, latitude: 0, longitude: 0, label };
           }
         }
       } else {
@@ -410,20 +413,23 @@ const UTMConverter = () => {
         const lat = parseFloat(point.easting);
         const lng = parseFloat(point.northing);
         
-        if (!isNaN(lat) && !isNaN(lng) && point.easting.trim() !== '' && point.northing.trim() !== '') {
+        if (!isNaN(lat) && !isNaN(lng) && point.easting.trim() !== '' && point.northing.trim() !== '' && 
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           return {
             ...point,
             latitude: lat,
             longitude: lng,
-            label: generateLabel(index)
+            label
           };
         }
       }
-      return { ...point, latitude: 0, longitude: 0, label: generateLabel(index) };
+      return { ...point, latitude: 0, longitude: 0, label };
     });
     
-    setPoints(updatedPoints);
-  }, [points.map(p => `${p.easting}-${p.northing}`).join(','), coordinateFormat]);
+    if (JSON.stringify(updatedPoints) !== JSON.stringify(points)) {
+      setPoints(updatedPoints);
+    }
+  }, [coordinateFormat]);
 
   const addPoint = () => {
     if (points.length < 10) { // Allow up to 10 points (A-J)
