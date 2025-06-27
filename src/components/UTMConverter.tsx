@@ -409,9 +409,9 @@ const UTMConverter = () => {
           }
         }
       } else {
-        // WGS84 mode: easting = latitude, northing = longitude
-        const lat = parseFloat(point.easting);
-        const lng = parseFloat(point.northing);
+        // WGS84 mode: easting field = latitude, northing field = longitude
+        const lat = parseFloat(point.easting);  // Latitude is in the "easting" field in WGS84 mode
+        const lng = parseFloat(point.northing); // Longitude is in the "northing" field in WGS84 mode
         
         if (!isNaN(lat) && !isNaN(lng) && point.easting.trim() !== '' && point.northing.trim() !== '' && 
             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
@@ -429,7 +429,7 @@ const UTMConverter = () => {
     if (JSON.stringify(updatedPoints) !== JSON.stringify(points)) {
       setPoints(updatedPoints);
     }
-  }, [coordinateFormat]);
+  }, [coordinateFormat, points.map(p => `${p.easting}-${p.northing}`).join(',')]);
 
   const addPoint = () => {
     if (points.length < 10) { // Allow up to 10 points (A-J)
@@ -597,35 +597,38 @@ const UTMConverter = () => {
                     </div>
                   </div>
 
-                  {/* Conversion display - only show for UTM mode */}
-                  {coordinateFormat === 'utm' && point.latitude !== 0 && point.longitude !== 0 && (
+                  {/* Conversion display */}
+                  {point.latitude !== 0 && point.longitude !== 0 && (
                     <div className="mt-4 grid md:grid-cols-2 gap-4">
-                      <div className="bg-green-50 p-3 rounded">
-                        <p className="text-sm text-green-700 font-medium">Converted Latitude</p>
-                        <p className="text-green-800 font-mono">{point.latitude.toFixed(8)}°</p>
-                      </div>
-                      <div className="bg-green-50 p-3 rounded">
-                        <p className="text-sm text-green-700 font-medium">Converted Longitude</p>
-                        <p className="text-green-800 font-mono">{point.longitude.toFixed(8)}°</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* UTM conversion display for WGS84 mode */}
-                  {coordinateFormat === 'latlng' && point.latitude !== 0 && point.longitude !== 0 && (
-                    <div className="mt-4 grid md:grid-cols-2 gap-4">
-                      <div className="bg-blue-50 p-3 rounded">
-                        <p className="text-sm text-blue-700 font-medium">UTM X (Easting)</p>
-                        <p className="text-blue-800 font-mono">
-                          {convertWGS84ToUTM(point.latitude, point.longitude).easting.toFixed(2)} m
-                        </p>
-                      </div>
-                      <div className="bg-blue-50 p-3 rounded">
-                        <p className="text-sm text-blue-700 font-medium">UTM Y (Northing)</p>
-                        <p className="text-blue-800 font-mono">
-                          {convertWGS84ToUTM(point.latitude, point.longitude).northing.toFixed(2)} m
-                        </p>
-                      </div>
+                      {coordinateFormat === 'utm' ? (
+                        // Show converted lat/lng for UTM mode
+                        <>
+                          <div className="bg-green-50 p-3 rounded">
+                            <p className="text-sm text-green-700 font-medium">Converted Latitude</p>
+                            <p className="text-green-800 font-mono">{point.latitude.toFixed(8)}°</p>
+                          </div>
+                          <div className="bg-green-50 p-3 rounded">
+                            <p className="text-sm text-green-700 font-medium">Converted Longitude</p>
+                            <p className="text-green-800 font-mono">{point.longitude.toFixed(8)}°</p>
+                          </div>
+                        </>
+                      ) : (
+                        // Show converted UTM for WGS84 mode
+                        <>
+                          <div className="bg-blue-50 p-3 rounded">
+                            <p className="text-sm text-blue-700 font-medium">UTM X (Easting)</p>
+                            <p className="text-blue-800 font-mono">
+                              {convertWGS84ToUTM(point.latitude, point.longitude).easting.toFixed(2)} m
+                            </p>
+                          </div>
+                          <div className="bg-blue-50 p-3 rounded">
+                            <p className="text-sm text-blue-700 font-medium">UTM Y (Northing)</p>
+                            <p className="text-blue-800 font-mono">
+                              {convertWGS84ToUTM(point.latitude, point.longitude).northing.toFixed(2)} m
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -693,7 +696,7 @@ const UTMConverter = () => {
                 <MapContainer
                   center={mapCenter}
                   zoom={15}
-                  style={{ height: '100%', width: '100%' }}
+                  className="h-full w-full"
                 >
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
