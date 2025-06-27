@@ -52,7 +52,7 @@ const UTMConverter = () => {
     
     const edges: { label: string; length: number }[] = [];
     
-    for (let i = 0; < validPoints.length - 1; i++) {
+    for (let i = 0; i < validPoints.length - 1; i++) {
       const p1 = validPoints[i];
       const p2 = validPoints[i + 1];
       const distance = calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
