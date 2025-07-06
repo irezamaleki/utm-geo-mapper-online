@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upload, FileText } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import JSZip from 'jszip';
@@ -60,33 +60,21 @@ const FileUploadSection: React.FC<FileUploadSectionProps> = ({ onPointsLoaded })
   };
 
   return (
-    <div className="mb-8">
-      <Label className="text-lg font-bold text-gray-900 mb-6 block font-cal-sans">
-        Import KML/KMZ File
+    <div className="relative">
+      <Input
+        type="file"
+        accept=".kml,.kmz"
+        onChange={handleFileUpload}
+        className="hidden"
+        id="file-upload"
+      />
+      <Label
+        htmlFor="file-upload"
+        className="absolute top-0 right-0 p-2 bg-gray-100 hover:bg-indigo-100 rounded-lg cursor-pointer transition-colors duration-200 group"
+        title="Upload KML/KMZ file"
+      >
+        <Upload className="h-5 w-5 text-gray-600 group-hover:text-indigo-600 transition-colors duration-200" />
       </Label>
-      <div className="relative group">
-        <Input
-          type="file"
-          accept=".kml,.kmz"
-          onChange={handleFileUpload}
-          className="hidden"
-          id="file-upload"
-        />
-        <Label
-          htmlFor="file-upload"
-          className="flex items-center justify-center px-6 py-6 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-200 group-hover:shadow-md"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gray-100 group-hover:bg-indigo-100 rounded-lg transition-colors duration-200">
-              <Upload className="h-6 w-6 text-gray-600 group-hover:text-indigo-600 transition-colors duration-200" />
-            </div>
-            <div className="text-center">
-              <span className="text-gray-700 font-medium font-inter block">Upload KML/KMZ file</span>
-              <span className="text-xs text-gray-500 font-inter">Drag and drop or click to browse</span>
-            </div>
-          </div>
-        </Label>
-      </div>
     </div>
   );
 };

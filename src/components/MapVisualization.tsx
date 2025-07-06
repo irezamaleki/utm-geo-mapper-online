@@ -17,7 +17,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
   const polygonCoords: [number, number][] = validPoints.map(p => [p.latitude, p.longitude]);
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 p-8">
+    <div className="sticky top-8 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 p-8">
       <div className="flex items-center mb-6">
         <div className="p-2 bg-indigo-100 rounded-lg mr-3">
           <MapPin className="h-6 w-6 text-indigo-600" />

@@ -176,8 +176,9 @@ const UTMConverter = () => {
         <div className="mt-16 grid lg:grid-cols-2 gap-8">
           {/* Input Section */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 p-8">
-            {/* Coordinate Format Selection */}
-            <div className="mb-8">
+            {/* Coordinate Format Selection with Upload Icon */}
+            <div className="mb-8 relative">
+              <FileUploadSection onPointsLoaded={setPoints} />
               <Label className="text-lg font-bold text-gray-900 mb-6 block font-cal-sans">
                 Coordinate Format
               </Label>
@@ -195,8 +196,6 @@ const UTMConverter = () => {
               </RadioGroup>
             </div>
 
-            <FileUploadSection onPointsLoaded={setPoints} />
-
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <div className="p-2 bg-indigo-100 rounded-lg mr-3">
@@ -208,14 +207,16 @@ const UTMConverter = () => {
               </div>
             </div>
             
-            <div className="bg-indigo-50/80 backdrop-blur-sm p-6 rounded-xl mb-8 border border-indigo-200/50">
-              <p className="text-sm text-indigo-800 font-semibold font-inter mb-2">
+            <div className="bg-indigo-50/80 backdrop-blur-sm px-3 py-2 rounded-lg mb-8 border border-indigo-200/50">
+              <p className="text-xs text-indigo-700 font-inter">
                 {coordinateFormat === 'utm' ? 'Zone: 39N | Datum: WGS 84' : 'Datum: WGS 84'}
               </p>
-              <p className="text-xs text-indigo-600 font-inter">
-                {validPoints.length === 3 && "3 points = Path (Polyline)"}
-                {validPoints.length >= 4 && "4+ points = Polygon"}
-              </p>
+              {validPoints.length === 3 && (
+                <p className="text-xs text-indigo-600 font-inter mt-1">3 points = Path (Polyline)</p>
+              )}
+              {validPoints.length >= 4 && (
+                <p className="text-xs text-indigo-600 font-inter mt-1">4+ points = Polygon</p>
+              )}
             </div>
 
             <div className="space-y-6">
