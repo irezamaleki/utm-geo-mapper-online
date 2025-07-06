@@ -88,29 +88,25 @@
   }
 }
 
-/* Micro-interactions and animations */
+/* Clean micro-interactions */
 @layer utilities {
   .hover-glow {
-    @apply transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/25;
+    @apply transition-all duration-200 hover:bg-gray-50;
   }
   
   .hover-lift {
-    @apply transition-transform duration-200 hover:-translate-y-1;
+    @apply transition-transform duration-200 hover:-translate-y-0.5;
   }
   
   .fade-in {
-    animation: fadeIn 0.6s ease-out forwards;
-  }
-  
-  .slide-up {
-    animation: slideUp 0.4s ease-out forwards;
+    animation: fadeIn 0.3s ease-out forwards;
   }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -118,37 +114,26 @@
   }
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Button hover effects */
+/* Clean button hover effects */
 button {
   @apply transition-all duration-200;
 }
 
 button:hover {
-  @apply transform scale-[1.02];
+  @apply transform scale-[1.01];
 }
 
-/* Link underline effects */
+/* Clean link underline effects */
 a {
-  @apply relative;
+  @apply relative transition-colors duration-200;
 }
 
 a:hover::after {
   content: '';
-  @apply absolute bottom-0 left-0 w-full h-0.5 bg-current transform scale-x-100 transition-transform duration-300 origin-left;
+  @apply absolute bottom-0 left-0 w-full h-0.5 bg-current transform scale-x-100 transition-transform duration-200 origin-left;
 }
 
 a::after {
   content: '';
-  @apply absolute bottom-0 left-0 w-full h-0.5 bg-current transform scale-x-0 transition-transform duration-300 origin-right;
+  @apply absolute bottom-0 left-0 w-full h-0.5 bg-current transform scale-x-0 transition-transform duration-200 origin-right;
 }

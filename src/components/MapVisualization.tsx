@@ -17,16 +17,14 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
   const polygonCoords: [number, number][] = validPoints.map(p => [p.latitude, p.longitude]);
 
   return (
-    <div className="sticky top-8 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 p-8">
+    <div className="sticky top-8 h-[calc(100vh-4rem)] bg-white border border-gray-200 p-6">
       <div className="flex items-center mb-6">
-        <div className="p-2 bg-indigo-100 rounded-lg mr-3">
-          <MapPin className="h-6 w-6 text-indigo-600" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 font-cal-sans">Map Visualization</h2>
+        <MapPin className="h-6 w-6 text-gray-900 mr-3" />
+        <h2 className="text-xl font-semibold text-gray-900 font-cal-sans">Map Visualization</h2>
       </div>
 
       {validPoints.length >= 2 ? (
-        <div className="h-96 rounded-xl overflow-hidden border border-gray-200/50">
+        <div className="h-96 border border-gray-200 overflow-hidden">
           <MapContainer
             center={mapCenter}
             zoom={15}
@@ -49,14 +47,14 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
             ))}
 
             {validPoints.length === 3 ? (
-              <Polyline positions={polygonCoords} pathOptions={{ color: "#6366f1", weight: 3 }} />
+              <Polyline positions={polygonCoords} pathOptions={{ color: "#374151", weight: 3 }} />
             ) : validPoints.length >= 4 ? (
-              <Polygon positions={polygonCoords} pathOptions={{ color: "#6366f1", weight: 3, fillOpacity: 0.1 }} />
+              <Polygon positions={polygonCoords} pathOptions={{ color: "#374151", weight: 3, fillOpacity: 0.1 }} />
             ) : null}
           </MapContainer>
         </div>
       ) : (
-        <div className="h-96 bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center">
+        <div className="h-96 bg-gray-50 border border-gray-300 border-dashed flex items-center justify-center">
           <div className="text-center">
             <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-500 font-inter">Enter at least 2 points to display map</p>

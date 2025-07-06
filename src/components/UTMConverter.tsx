@@ -9,8 +9,7 @@ import L from 'leaflet';
 import { convertUTMToWGS84, convertWGS84ToUTM } from '@/utils/coordinateConversions';
 import { calculatePolygonArea } from '@/utils/geometryCalculations';
 import { Point, generateLabel } from '@/utils/kmlParser';
-import BackgroundGrid from './BackgroundGrid';
-import HeroSection from './HeroSection';
+import Header from './Header';
 import FileUploadSection from './FileUploadSection';
 import PointInput from './PointInput';
 import StatisticsDisplay from './StatisticsDisplay';
@@ -167,29 +166,27 @@ const UTMConverter = () => {
   const area = isPolygon ? calculatePolygonArea(polygonCoords) : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-inter relative">
-      <BackgroundGrid />
+    <div className="min-h-screen bg-gray-50 font-inter">
+      <Header />
       
-      <div className="max-w-7xl mx-auto px-4 py-8 relative z-10">
-        <HeroSection />
-        
-        <div className="mt-16 grid lg:grid-cols-2 gap-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Input Section */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 p-8">
+          <div className="bg-white border border-gray-200 p-8">
             {/* Coordinate Format Selection with Upload Icon */}
             <div className="mb-8 relative">
               <FileUploadSection onPointsLoaded={setPoints} />
-              <Label className="text-lg font-bold text-gray-900 mb-6 block font-cal-sans">
+              <Label className="text-lg font-semibold text-gray-900 mb-6 block font-cal-sans">
                 Coordinate Format
               </Label>
               <RadioGroup value={coordinateFormat} onValueChange={(value: CoordinateFormat) => setCoordinateFormat(value)}>
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-3 p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200">
-                    <RadioGroupItem value="utm" id="utm" className="border-2" />
+                  <div className="flex items-center space-x-3 p-4 border border-gray-200 hover:border-gray-300 hover:bg-gray-50">
+                    <RadioGroupItem value="utm" id="utm" />
                     <Label htmlFor="utm" className="font-inter font-medium text-gray-700 cursor-pointer">UTM Zone 39N (X/Y meters)</Label>
                   </div>
-                  <div className="flex items-center space-x-3 p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200">
-                    <RadioGroupItem value="latlng" id="latlng" className="border-2" />
+                  <div className="flex items-center space-x-3 p-4 border border-gray-200 hover:border-gray-300 hover:bg-gray-50">
+                    <RadioGroupItem value="latlng" id="latlng" />
                     <Label htmlFor="latlng" className="font-inter font-medium text-gray-700 cursor-pointer">WGS84 (Latitude/Longitude degrees)</Label>
                   </div>
                 </div>
@@ -198,24 +195,22 @@ const UTMConverter = () => {
 
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
-                <div className="p-2 bg-indigo-100 rounded-lg mr-3">
-                  <Calculator className="h-6 w-6 text-indigo-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 font-cal-sans">
+                <Calculator className="h-6 w-6 text-gray-900 mr-3" />
+                <h2 className="text-xl font-semibold text-gray-900 font-cal-sans">
                   {coordinateFormat === 'utm' ? 'UTM Coordinates' : 'WGS84 Coordinates'}
                 </h2>
               </div>
             </div>
             
-            <div className="bg-indigo-50/80 backdrop-blur-sm px-3 py-2 rounded-lg mb-8 border border-indigo-200/50">
-              <p className="text-xs text-indigo-700 font-inter">
+            <div className="bg-blue-50 px-2 py-1 mb-8 border border-blue-200 inline-block">
+              <p className="text-xs text-blue-700 font-inter font-light">
                 {coordinateFormat === 'utm' ? 'Zone: 39N | Datum: WGS 84' : 'Datum: WGS 84'}
               </p>
               {validPoints.length === 3 && (
-                <p className="text-xs text-indigo-600 font-inter mt-1">3 points = Path (Polyline)</p>
+                <p className="text-xs text-blue-600 font-inter font-light mt-1">3 points = Path (Polyline)</p>
               )}
               {validPoints.length >= 4 && (
-                <p className="text-xs text-indigo-600 font-inter mt-1">4+ points = Polygon</p>
+                <p className="text-xs text-blue-600 font-inter font-light mt-1">4+ points = Polygon</p>
               )}
             </div>
 
@@ -234,7 +229,7 @@ const UTMConverter = () => {
               {points.length < 10 && (
                 <Button
                   onClick={addPoint}
-                  className="w-full font-inter font-medium hover:shadow-lg transition-all duration-200 bg-slate-800 hover:bg-slate-900"
+                  className="w-full font-inter font-medium bg-gray-900 hover:bg-gray-800 text-white"
                   variant="default"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -248,7 +243,7 @@ const UTMConverter = () => {
             {validPoints.length >= 2 && (
               <Button
                 onClick={generateKMZ}
-                className="mt-8 w-full font-inter font-medium bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg transition-all duration-200"
+                className="mt-8 w-full font-inter font-medium bg-orange-500 hover:bg-orange-600 text-white"
                 variant="default"
               >
                 <Download className="h-5 w-5 mr-2" />

@@ -70,10 +70,10 @@ const FileUploadSection: React.FC<FileUploadSectionProps> = ({ onPointsLoaded })
       />
       <Label
         htmlFor="file-upload"
-        className="absolute top-0 right-0 p-2 bg-gray-100 hover:bg-indigo-100 rounded-lg cursor-pointer transition-colors duration-200 group"
+        className="absolute top-0 right-0 p-2 bg-gray-100 hover:bg-gray-200 cursor-pointer"
         title="Upload KML/KMZ file"
       >
-        <Upload className="h-5 w-5 text-gray-600 group-hover:text-indigo-600 transition-colors duration-200" />
+        <Upload className="h-5 w-5 text-gray-600" />
       </Label>
     </div>
   );
