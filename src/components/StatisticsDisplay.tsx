@@ -2,6 +2,7 @@
 import React from 'react';
 import { calculateDistance } from '@/utils/geometryCalculations';
 import { Point } from '@/utils/kmlParser';
+import { BarChart3, Square } from 'lucide-react';
 
 interface StatisticsDisplayProps {
   validPoints: Point[];
@@ -9,7 +10,6 @@ interface StatisticsDisplayProps {
 }
 
 const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({ validPoints, area }) => {
-  // Calculate edge lengths
   const calculateEdgeLengths = (): { label: string; length: number }[] => {
     if (validPoints.length < 2) return [];
     
@@ -25,7 +25,6 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({ validPoints, area
       });
     }
     
-    // If it's a polygon (4+ points), add the closing edge
     if (validPoints.length >= 4) {
       const lastPoint = validPoints[validPoints.length - 1];
       const firstPoint = validPoints[0];
@@ -44,26 +43,34 @@ const StatisticsDisplay: React.FC<StatisticsDisplayProps> = ({ validPoints, area
 
   return (
     <>
-      {/* Edge Lengths */}
       {edgeLengths.length > 0 && (
-        <div className="mt-6 bg-purple-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-purple-800 mb-3">Edge Lengths</p>
-          <div className="space-y-2">
+        <div className="mt-8 bg-purple-50/80 backdrop-blur-sm border border-purple-200/50 p-6 rounded-xl hover:shadow-md transition-all duration-200">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-purple-100 rounded-lg mr-3">
+              <BarChart3 className="h-5 w-5 text-purple-600" />
+            </div>
+            <p className="text-lg font-bold text-purple-900 font-cal-sans">Edge Lengths</p>
+          </div>
+          <div className="space-y-3">
             {edgeLengths.map((edge, index) => (
-              <div key={index} className="flex justify-between items-center">
-                <span className="text-purple-700 font-medium">{edge.label}</span>
-                <span className="text-purple-900 font-mono">{edge.length.toFixed(2)} m</span>
+              <div key={index} className="flex justify-between items-center p-3 bg-white/60 rounded-lg border border-purple-100">
+                <span className="text-purple-800 font-medium font-inter">{edge.label}</span>
+                <span className="text-purple-900 font-mono font-bold">{edge.length.toFixed(2)} m</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Polygon Area */}
       {isPolygon && area !== undefined && (
-        <div className="mt-6 bg-yellow-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-yellow-800 mb-2">Polygon Area</p>
-          <p className="text-xl font-mono text-yellow-900">{area.toFixed(2)} m²</p>
+        <div className="mt-6 bg-teal-50/80 backdrop-blur-sm border border-teal-200/50 p-6 rounded-xl hover:shadow-md transition-all duration-200">
+          <div className="flex items-center mb-3">
+            <div className="p-2 bg-teal-100 rounded-lg mr-3">
+              <Square className="h-5 w-5 text-teal-600" />
+            </div>
+            <p className="text-lg font-bold text-teal-900 font-cal-sans">Polygon Area</p>
+          </div>
+          <p className="text-3xl font-mono font-bold text-teal-900">{area.toFixed(2)} m²</p>
         </div>
       )}
     </>

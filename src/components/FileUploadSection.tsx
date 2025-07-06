@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import JSZip from 'jszip';
@@ -25,7 +25,6 @@ const FileUploadSection: React.FC<FileUploadSectionProps> = ({ onPointsLoaded })
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(file);
         
-        // Look for KML files in the zip
         const kmlFiles = Object.keys(zipContent.files).filter(name => 
           name.toLowerCase().endsWith('.kml')
         );
@@ -57,16 +56,15 @@ const FileUploadSection: React.FC<FileUploadSectionProps> = ({ onPointsLoaded })
       console.error('Error parsing file:', error);
     }
 
-    // Reset file input
     event.target.value = '';
   };
 
   return (
-    <div className="mb-6">
-      <Label className="text-lg font-semibold text-gray-800 mb-4 block">
+    <div className="mb-8">
+      <Label className="text-lg font-bold text-gray-900 mb-6 block font-cal-sans">
         Import KML/KMZ File
       </Label>
-      <div className="relative">
+      <div className="relative group">
         <Input
           type="file"
           accept=".kml,.kmz"
@@ -76,10 +74,17 @@ const FileUploadSection: React.FC<FileUploadSectionProps> = ({ onPointsLoaded })
         />
         <Label
           htmlFor="file-upload"
-          className="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50"
+          className="flex items-center justify-center px-6 py-6 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-200 group-hover:shadow-md"
         >
-          <Upload className="h-5 w-5 mr-2 text-gray-500" />
-          <span className="text-gray-600">Upload KML/KMZ file</span>
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-gray-100 group-hover:bg-indigo-100 rounded-lg transition-colors duration-200">
+              <Upload className="h-6 w-6 text-gray-600 group-hover:text-indigo-600 transition-colors duration-200" />
+            </div>
+            <div className="text-center">
+              <span className="text-gray-700 font-medium font-inter block">Upload KML/KMZ file</span>
+              <span className="text-xs text-gray-500 font-inter">Drag and drop or click to browse</span>
+            </div>
+          </div>
         </Label>
       </div>
     </div>

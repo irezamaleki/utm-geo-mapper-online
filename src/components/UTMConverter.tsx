@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Calculator, Globe, Plus, Download } from 'lucide-react';
+import { Calculator, Plus, Download } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,8 @@ import L from 'leaflet';
 import { convertUTMToWGS84, convertWGS84ToUTM } from '@/utils/coordinateConversions';
 import { calculatePolygonArea } from '@/utils/geometryCalculations';
 import { Point, generateLabel } from '@/utils/kmlParser';
+import BackgroundGrid from './BackgroundGrid';
+import HeroSection from './HeroSection';
 import FileUploadSection from './FileUploadSection';
 import PointInput from './PointInput';
 import StatisticsDisplay from './StatisticsDisplay';
@@ -87,7 +88,6 @@ const UTMConverter = () => {
       const label = generateLabel(index);
       
       if (coordinateFormat === 'utm') {
-        // UTM mode: easting = X, northing = Y
         const eastingNum = parseFloat(point.easting);
         const northingNum = parseFloat(point.northing);
         
@@ -106,9 +106,8 @@ const UTMConverter = () => {
           }
         }
       } else {
-        // WGS84 mode: easting field = latitude, northing field = longitude
-        const lat = parseFloat(point.easting);  // Latitude is in the "easting" field in WGS84 mode
-        const lng = parseFloat(point.northing); // Longitude is in the "northing" field in WGS84 mode
+        const lat = parseFloat(point.easting);
+        const lng = parseFloat(point.northing);
         
         if (!isNaN(lat) && !isNaN(lng) && point.easting.trim() !== '' && point.northing.trim() !== '' && 
             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
@@ -129,7 +128,7 @@ const UTMConverter = () => {
   }, [coordinateFormat, points.map(p => `${p.easting}-${p.northing}`).join(',')]);
 
   const addPoint = () => {
-    if (points.length < 10) { // Allow up to 10 points (A-J)
+    if (points.length < 10) {
       const newIndex = points.length;
       setPoints([...points, { 
         id: Date.now().toString(), 
@@ -145,7 +144,6 @@ const UTMConverter = () => {
   const removePoint = (id: string) => {
     if (points.length > 1) {
       const filteredPoints = points.filter(p => p.id !== id);
-      // Relabel remaining points
       const relabeledPoints = filteredPoints.map((point, index) => ({
         ...point,
         label: generateLabel(index)
@@ -169,33 +167,30 @@ const UTMConverter = () => {
   const area = isPolygon ? calculatePolygonArea(polygonCoords) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4 font-inter">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Globe className="h-12 w-12 text-blue-600 mr-3" />
-            <h1 className="text-4xl font-bold text-gray-800 font-cal-sans">UTM to WGS84 Converter</h1>
-          </div>
-          <p className="text-gray-600 text-lg font-inter">Convert coordinates and visualize on map</p>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-8">
+    <div className="min-h-screen bg-slate-50 font-inter relative">
+      <BackgroundGrid />
+      
+      <div className="max-w-7xl mx-auto px-4 py-8 relative z-10">
+        <HeroSection />
+        
+        <div className="mt-16 grid lg:grid-cols-2 gap-8">
           {/* Input Section */}
-          <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 p-8">
             {/* Coordinate Format Selection */}
-            <div className="mb-6">
-              <Label className="text-lg font-semibold text-gray-800 mb-4 block font-cal-sans">
+            <div className="mb-8">
+              <Label className="text-lg font-bold text-gray-900 mb-6 block font-cal-sans">
                 Coordinate Format
               </Label>
               <RadioGroup value={coordinateFormat} onValueChange={(value: CoordinateFormat) => setCoordinateFormat(value)}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="utm" id="utm" />
-                  <Label htmlFor="utm" className="font-inter">UTM Zone 39N (X/Y meters)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="latlng" id="latlng" />
-                  <Label htmlFor="latlng" className="font-inter">WGS84 (Latitude/Longitude degrees)</Label>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200">
+                    <RadioGroupItem value="utm" id="utm" className="border-2" />
+                    <Label htmlFor="utm" className="font-inter font-medium text-gray-700 cursor-pointer">UTM Zone 39N (X/Y meters)</Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all duration-200">
+                    <RadioGroupItem value="latlng" id="latlng" className="border-2" />
+                    <Label htmlFor="latlng" className="font-inter font-medium text-gray-700 cursor-pointer">WGS84 (Latitude/Longitude degrees)</Label>
+                  </div>
                 </div>
               </RadioGroup>
             </div>
@@ -204,18 +199,20 @@ const UTMConverter = () => {
 
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
-                <Calculator className="h-6 w-6 text-blue-600 mr-2" />
-                <h2 className="text-2xl font-semibold text-gray-800 font-cal-sans">
+                <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                  <Calculator className="h-6 w-6 text-indigo-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 font-cal-sans">
                   {coordinateFormat === 'utm' ? 'UTM Coordinates' : 'WGS84 Coordinates'}
                 </h2>
               </div>
             </div>
             
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <p className="text-sm text-blue-700 font-medium font-inter">
+            <div className="bg-indigo-50/80 backdrop-blur-sm p-6 rounded-xl mb-8 border border-indigo-200/50">
+              <p className="text-sm text-indigo-800 font-semibold font-inter mb-2">
                 {coordinateFormat === 'utm' ? 'Zone: 39N | Datum: WGS 84' : 'Datum: WGS 84'}
               </p>
-              <p className="text-xs text-blue-600 mt-1 font-inter">
+              <p className="text-xs text-indigo-600 font-inter">
                 {validPoints.length === 3 && "3 points = Path (Polyline)"}
                 {validPoints.length >= 4 && "4+ points = Polygon"}
               </p>
@@ -233,12 +230,11 @@ const UTMConverter = () => {
                 />
               ))}
 
-              {/* Add Point button */}
               {points.length < 10 && (
                 <Button
                   onClick={addPoint}
-                  className="w-full font-inter"
-                  variant="outline"
+                  className="w-full font-inter font-medium hover:shadow-lg transition-all duration-200 bg-slate-800 hover:bg-slate-900"
+                  variant="default"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Point
@@ -251,7 +247,7 @@ const UTMConverter = () => {
             {validPoints.length >= 2 && (
               <Button
                 onClick={generateKMZ}
-                className="mt-6 w-full font-inter"
+                className="mt-8 w-full font-inter font-medium bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg transition-all duration-200"
                 variant="default"
               >
                 <Download className="h-5 w-5 mr-2" />
