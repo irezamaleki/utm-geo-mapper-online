@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import JSZip from 'jszip';
 import L from 'leaflet';
 
-import { convertUTMToWGS84 } from '@/utils/coordinateConversions';
+import { convertUTMToWGS84, convertWGS84ToUTM } from '@/utils/coordinateConversions';
 import { calculatePolygonArea } from '@/utils/geometryCalculations';
 import { Point, generateLabel } from '@/utils/kmlParser';
 import FileUploadSection from './FileUploadSection';
@@ -169,15 +169,15 @@ const UTMConverter = () => {
   const area = isPolygon ? calculatePolygonArea(polygonCoords) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4 font-inter">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <Globe className="h-12 w-12 text-blue-600 mr-3" />
-            <h1 className="text-4xl font-bold text-gray-800">UTM to WGS84 Converter</h1>
+            <h1 className="text-4xl font-bold text-gray-800 font-cal-sans">UTM to WGS84 Converter</h1>
           </div>
-          <p className="text-gray-600 text-lg">Convert coordinates and visualize on map</p>
+          <p className="text-gray-600 text-lg font-inter">Convert coordinates and visualize on map</p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -185,17 +185,17 @@ const UTMConverter = () => {
           <div className="bg-white rounded-2xl shadow-xl p-8">
             {/* Coordinate Format Selection */}
             <div className="mb-6">
-              <Label className="text-lg font-semibold text-gray-800 mb-4 block">
+              <Label className="text-lg font-semibold text-gray-800 mb-4 block font-cal-sans">
                 Coordinate Format
               </Label>
               <RadioGroup value={coordinateFormat} onValueChange={(value: CoordinateFormat) => setCoordinateFormat(value)}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="utm" id="utm" />
-                  <Label htmlFor="utm">UTM Zone 39N (X/Y meters)</Label>
+                  <Label htmlFor="utm" className="font-inter">UTM Zone 39N (X/Y meters)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="latlng" id="latlng" />
-                  <Label htmlFor="latlng">WGS84 (Latitude/Longitude degrees)</Label>
+                  <Label htmlFor="latlng" className="font-inter">WGS84 (Latitude/Longitude degrees)</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -205,17 +205,17 @@ const UTMConverter = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Calculator className="h-6 w-6 text-blue-600 mr-2" />
-                <h2 className="text-2xl font-semibold text-gray-800">
+                <h2 className="text-2xl font-semibold text-gray-800 font-cal-sans">
                   {coordinateFormat === 'utm' ? 'UTM Coordinates' : 'WGS84 Coordinates'}
                 </h2>
               </div>
             </div>
             
             <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <p className="text-sm text-blue-700 font-medium">
+              <p className="text-sm text-blue-700 font-medium font-inter">
                 {coordinateFormat === 'utm' ? 'Zone: 39N | Datum: WGS 84' : 'Datum: WGS 84'}
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-blue-600 mt-1 font-inter">
                 {validPoints.length === 3 && "3 points = Path (Polyline)"}
                 {validPoints.length >= 4 && "4+ points = Polygon"}
               </p>
@@ -237,7 +237,7 @@ const UTMConverter = () => {
               {points.length < 10 && (
                 <Button
                   onClick={addPoint}
-                  className="w-full"
+                  className="w-full font-inter"
                   variant="outline"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -251,7 +251,7 @@ const UTMConverter = () => {
             {validPoints.length >= 2 && (
               <Button
                 onClick={generateKMZ}
-                className="mt-6 w-full"
+                className="mt-6 w-full font-inter"
                 variant="default"
               >
                 <Download className="h-5 w-5 mr-2" />

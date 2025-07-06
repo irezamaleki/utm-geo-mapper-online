@@ -20,7 +20,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
     <div className="bg-white rounded-2xl shadow-xl p-8">
       <div className="flex items-center mb-6">
         <MapPin className="h-6 w-6 text-green-600 mr-2" />
-        <h2 className="text-2xl font-semibold text-gray-800">Map Visualization</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 font-cal-sans">Map Visualization</h2>
       </div>
 
       {validPoints.length >= 2 ? (
@@ -37,9 +37,11 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
             {validPoints.map((point) => (
               <Marker key={point.id} position={[point.latitude, point.longitude]}>
                 <Popup>
-                  Point {point.label}<br />
-                  Lat: {point.latitude.toFixed(6)}°<br />
-                  Lng: {point.longitude.toFixed(6)}°
+                  <div className="font-inter">
+                    Point {point.label}<br />
+                    Lat: {point.latitude.toFixed(6)}°<br />
+                    Lng: {point.longitude.toFixed(6)}°
+                  </div>
                 </Popup>
               </Marker>
             ))}
@@ -53,7 +55,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
         </div>
       ) : (
         <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-          <p className="text-gray-500">Enter at least 2 points to display map</p>
+          <p className="text-gray-500 font-inter">Enter at least 2 points to display map</p>
         </div>
       )}
     </div>
