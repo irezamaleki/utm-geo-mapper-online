@@ -17,14 +17,14 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
   const polygonCoords: [number, number][] = validPoints.map(p => [p.latitude, p.longitude]);
 
   return (
-    <div className="sticky top-8 h-[calc(100vh-4rem)] bg-white border border-gray-200 p-6">
-      <div className="flex items-center mb-6">
-        <MapPin className="h-6 w-6 text-gray-900 mr-3" />
-        <h2 className="text-xl font-semibold text-gray-900 font-cal-sans">Map Visualization</h2>
+    <div className="sticky top-0 h-screen bg-white border-l border-gray-300">
+      <div className="flex items-center px-6 py-4 border-b border-gray-300">
+        <MapPin className="h-5 w-5 text-gray-900 mr-3" />
+        <h2 className="text-lg font-semibold text-gray-900 font-cal-sans">Map Visualization</h2>
       </div>
 
       {validPoints.length >= 2 ? (
-        <div className="h-96 border border-gray-200 overflow-hidden">
+        <div className="h-[calc(100vh-80px)]">
           <MapContainer
             center={mapCenter}
             zoom={15}
@@ -54,7 +54,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
           </MapContainer>
         </div>
       ) : (
-        <div className="h-96 bg-gray-50 border border-gray-300 border-dashed flex items-center justify-center">
+        <div className="h-[calc(100vh-80px)] bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-500 font-inter">Enter at least 2 points to display map</p>
