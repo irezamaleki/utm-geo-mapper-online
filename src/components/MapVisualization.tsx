@@ -1,20 +1,28 @@
-
 import React from 'react';
 import { MapPin } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup } from 'react-leaflet';
 import { Point } from '@/utils/kmlParser';
 import 'leaflet/dist/leaflet.css';
+import L, { LatLngTuple } from 'leaflet';
+
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface MapVisualizationProps {
   validPoints: Point[];
 }
 
 const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
-  const mapCenter: [number, number] = validPoints.length > 0 
+  const mapCenter: LatLngTuple = validPoints.length > 0 
     ? [validPoints[0].latitude, validPoints[0].longitude]
     : [36.55, 53.09];
 
-  const polygonCoords: [number, number][] = validPoints.map(p => [p.latitude, p.longitude]);
+  const polygonCoords: LatLngTuple[] = validPoints.map(p => [p.latitude, p.longitude]);
 
   return (
     <div className="sticky top-0 h-screen bg-white border-l border-gray-300">
@@ -35,7 +43,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = ({ validPoints }) => {
             />
             
             {validPoints.map((point) => (
-              <Marker key={point.id} position={[point.latitude, point.longitude]}>
+              <Marker key={point.id} position={[point.latitude, point.longitude] as LatLngTuple}>
                 <Popup>
                   <div className="font-inter">
                     Point {point.label}<br />
